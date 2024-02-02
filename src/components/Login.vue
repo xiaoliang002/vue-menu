@@ -1,56 +1,66 @@
 <template>
-  <el-row type="flex" justify="center" align="middle" style="height: 100vh;">
-    <el-col :xs="24" :sm="20" :md="16" :lg="12" :xl="8">
-      <el-card class="login-card">
-        <el-form :model="loginForm" label-width="100px">
-          <el-form-item label="用户名">
-            <el-input v-model="loginForm.username" placeholder="请输入用户名"></el-input>
-          </el-form-item>
-          <el-form-item label="密码">
-            <el-input type="password" v-model="loginForm.password" placeholder="请输入密码"></el-input>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleLogin">登录</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-    </el-col>
-  </el-row>
+  <el-card class="login-box">
+    <el-form ref="loginForm" :model="loginForm" class="demo-ruleForm">
+      <el-form-item label="用户名" prop="username">
+        <el-input v-model="loginForm.username"></el-input>
+      </el-form-item>
+      <el-form-item label="密码" prop="password">
+        <el-input type="password" v-model="loginForm.password" autocomplete="off"></el-input>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="handleLogin">登录</el-button>
+      </el-form-item>
+    </el-form>
+  </el-card>
 </template>
 
-<script lang="ts">
-import { reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { fetchMenuAndAddRoutes } from '@/services/api'; // 假设这个函数处理登录并获取菜单
-import { login } from '@/services/api'; // 假设这个函数处理登录并获取菜单
+<script>
+import { ElMessage } from 'element-plus';
+import { login, fetchMenu } from '@/services/api';
+import {addDynamicRoutes} from '@/router'; // 确保正确导入addDynamicRoutes函数
 
 export default {
-  setup() {
-    const router = useRouter();
-    const loginForm = reactive({
-      username: '',
-      password: ''
-    });
-    const loading = ref(false); // 控制加载状态
-
-    const handleLogin = async () => {
-      const token = await login(loginForm.username, loginForm.password);
-      if (token) {
-        const success = await fetchMenuAndAddRoutes(); // 获取菜单并添加路由
-        if (success) {
-          router.push('/'); // 登录成功，且菜单数据获取后跳转
-        }
+  data() {
+    return {
+      loginForm: {
+        username: '',
+        password: ''
       }
     };
-
-    return { loginForm, handleLogin, loading };
+  },
+  methods: {
+    async handleLogin() {
+      try {
+        const response = await login(this.loginForm.username, this.loginForm.password);
+        if (response.code === 200) {
+          ElMessage.success('登录成功');
+          // 存储访问令牌
+          localStorage.setItem('access_token', response.access);
+          // 获取并处理菜单数据
+          const menuData = await fetchMenu();
+          console.log('获取到的菜单数据:', menuData);
+          localStorage.setItem('menuData', JSON.stringify(menuData)); // 保存菜单数据
+          // 在这里调用addDynamicRoutes函数动态添加路由
+          addDynamicRoutes(menuData);
+          // 确保路由添加完成后再跳转
+          this.$nextTick(() => {
+            this.$router.push('/home');
+          });
+        } else {
+          ElMessage.error('登录失败');
+        }
+      } catch (error) {
+        console.error('登录异常:', error);
+        ElMessage.error('登录异常');
+      }
+    }
   }
 };
 </script>
 
 <style scoped>
-.login-card {
-  width: 100%;
-  background: white;
+.login-box {
+  width: 360px;
+  margin: 50px auto;
 }
 </style>
